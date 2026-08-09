@@ -4,7 +4,7 @@ import ProtectedRoute from '../../component/layout/ProtectedRoute';
 import MainLayout from '../../component/layout/MainLayout';
 import { productAPI, salesAPI } from '../../api/apiService';
 import { useNotification, NotificationProvider } from '../../component/common/Notification';
-import { Button, Loader, ErrorState, EmptyState } from '../../component/common';
+import { Button, Loader, ErrorState, EmptyState, Modal } from '../../component/common';
 import { icons } from '../../constData';
 import ProductCard from '../../component/products/ProductCard';
 
@@ -15,6 +15,7 @@ function SalesPOS() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const { showNotification } = useNotification();
 
   const loadProducts = async () => {
@@ -33,6 +34,12 @@ function SalesPOS() {
   useEffect(() => {
     loadProducts();
   }, []);
+
+  useEffect(() => {
+    if (cart.length === 0) {
+      setIsCheckoutOpen(false);
+    }
+  }, [cart.length]);
 
   const addToCart = (product) => {
     const existing = cart.find(item => item.productId === product._id);
@@ -76,6 +83,7 @@ function SalesPOS() {
       await salesAPI.createSale({ items: cart });
       showNotification('Sale completed successfully!', 'success');
       setCart([]);
+      setIsCheckoutOpen(false);
     } catch (err) {
       showNotification(err.message || 'Failed to submit sale', 'error');
     } finally {
@@ -87,10 +95,89 @@ function SalesPOS() {
     p.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const renderCartContent = (isModal = false) => {
+    if (cart.length === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center text-center p-8 text-gray-400">
+          <icons.salesIcon className="h-8 w-8 mb-2 opacity-50" />
+          <span className="text-xs font-medium">Cart is empty. Select items to checkout.</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex-1 flex flex-col justify-between min-h-0">
+        {/* Cart Header for Modal */}
+        {isModal && (
+          <div className="flex items-center justify-between pb-3 mb-2 border-b border-gray-100">
+            <span className="text-xs text-gray-500 font-bold">Selected Items ({cart.reduce((acc, item) => acc + item.quantity, 0)})</span>
+            <button 
+              onClick={() => setCart([])}
+              className="text-xs text-red-500 hover:text-red-600 font-bold transition-colors cursor-pointer"
+            >
+              Clear All
+            </button>
+          </div>
+        )}
+
+        {/* Cart Items list */}
+        <div className={`pr-2 divide-y divide-gray-150 space-y-1 pb-4 ${isModal ? 'max-h-[350px] overflow-y-auto' : 'lg:flex-1 overflow-y-visible lg:overflow-y-auto'}`}>
+          {cart.map((item) => (
+            <div key={item.productId} className="py-2.5 flex items-center justify-between text-xs">
+              <div>
+                <span className="font-bold text-gray-900">{item.name}</span>
+                <div className="text-gray-400 mt-0.5">₹{item.price} each</div>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-1.5">
+                  <button 
+                    onClick={() => removeFromCart(item.productId)}
+                    className="text-gray-400 hover:text-gray-600 border border-gray-300 rounded p-1 transition-colors cursor-pointer"
+                  >
+                    <icons.minusIcon className="h-2.5 w-2.5" />
+                  </button>
+                  <span className="font-bold text-gray-800 min-w-[12px] text-center">{item.quantity}</span>
+                  <button 
+                    onClick={() => addToCart({ _id: item.productId, name: item.name, price: item.price })}
+                    className="text-gray-400 hover:text-gray-600 border border-gray-300 rounded p-1 transition-colors cursor-pointer"
+                  >
+                    <icons.plusIcon className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+                <span className="font-bold text-gray-900 w-12 text-right">₹{item.price * item.quantity}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bill Summary */}
+        <div className="border-t border-gray-100 pt-4 space-y-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-500 font-medium">Subtotal</span>
+            <span className="font-semibold text-gray-800">₹{getCartTotal()}</span>
+          </div>
+          <div className="flex items-center justify-between text-base border-t border-dashed border-gray-150 pt-3">
+            <span className="font-bold text-gray-900">Total Bill</span>
+            <span className="font-black text-amber-800 text-lg">₹{getCartTotal()}</span>
+          </div>
+
+          <Button 
+            variant="primary" 
+            className="w-full text-base py-3"
+            onClick={handleCheckout}
+            disabled={checkoutLoading}
+          >
+            {checkoutLoading ? 'Submitting...' : 'CONFIRM SALE'}
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <ProtectedRoute allowedRoles={['admin', 'employee']}>
       <MainLayout>
-        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)]">
+        <div className="flex flex-col lg:flex-row gap-6 h-auto lg:h-[calc(100vh-8rem)]">
           {/* Products Panel */}
           <div className="flex-1 flex flex-col min-h-0 bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4 mb-4 gap-4">
@@ -114,7 +201,7 @@ function SalesPOS() {
             ) : filteredProducts.length === 0 ? (
               <EmptyState title="No products found" description="Try searching for another item or add new products." />
             ) : (
-              <div className="flex-1 overflow-y-auto p-1.5 pb-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 content-start">
+              <div className="lg:flex-1 overflow-y-visible lg:overflow-y-auto p-1.5 pb-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 content-start">
                 {filteredProducts.map((product) => {
                   const cartItem = cart.find(item => item.productId === product._id);
                   return (
@@ -131,8 +218,8 @@ function SalesPOS() {
             )}
           </div>
 
-          {/* Cart / Billing Panel */}
-          <div className="w-full lg:w-96 flex flex-col bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm min-h-[300px] lg:h-full">
+          {/* Cart / Billing Panel - Visible on Desktop, Hidden on Mobile */}
+          <div className="hidden lg:flex w-full lg:w-96 flex-col bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm min-h-[300px] lg:h-full">
             <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4 mb-4 flex items-center justify-between">
               <span>Current Bill</span>
               {cart.length > 0 && (
@@ -144,69 +231,34 @@ function SalesPOS() {
                 </button>
               )}
             </h2>
-
-            {cart.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
-                <icons.salesIcon className="h-8 w-8 mb-2 opacity-50" />
-                <span className="text-xs font-medium">Cart is empty. Select items to checkout.</span>
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col justify-between min-h-0">
-                {/* Cart Items list */}
-                <div className="flex-1 overflow-y-auto pr-2 divide-y divide-gray-150 space-y-1 pb-4">
-                  {cart.map((item) => (
-                    <div key={item.productId} className="py-2.5 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-bold text-gray-900">{item.name}</span>
-                        <div className="text-gray-400 mt-0.5">₹{item.price} each</div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-1.5">
-                          <button 
-                            onClick={() => removeFromCart(item.productId)}
-                            className="text-gray-400 hover:text-gray-600 border border-gray-300 rounded p-1 transition-colors"
-                          >
-                            <icons.minusIcon className="h-2.5 w-2.5" />
-                          </button>
-                          <span className="font-bold text-gray-800 min-w-[12px] text-center">{item.quantity}</span>
-                          <button 
-                            onClick={() => addToCart(item)}
-                            className="text-gray-400 hover:text-gray-600 border border-gray-300 rounded p-1 transition-colors"
-                          >
-                            <icons.plusIcon className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                        <span className="font-bold text-gray-900 w-12 text-right">₹{item.price * item.quantity}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Bill Summary */}
-                <div className="border-t border-gray-100 pt-4 space-y-4">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-500 font-medium">Subtotal</span>
-                    <span className="font-semibold text-gray-800">₹{getCartTotal()}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-base border-t border-dashed border-gray-150 pt-3">
-                    <span className="font-bold text-gray-900">Total Bill</span>
-                    <span className="font-black text-amber-800 text-lg">₹{getCartTotal()}</span>
-                  </div>
-
-                  <Button 
-                    variant="primary" 
-                    className="w-full text-base py-3"
-                    onClick={handleCheckout}
-                    disabled={checkoutLoading}
-                  >
-                    {checkoutLoading ? 'Submitting...' : 'CONFIRM SALE'}
-                  </Button>
-                </div>
-              </div>
-            )}
+            {renderCartContent(false)}
           </div>
         </div>
       </MainLayout>
+
+      {/* Floating Circle Checkout Button on Mobile */}
+      {cart.length > 0 && (
+        <button
+          onClick={() => setIsCheckoutOpen(true)}
+          className="lg:hidden fixed bottom-20 right-6 z-40 bg-amber-800 hover:bg-amber-900 text-white rounded-full w-14 h-14 flex items-center justify-center shadow-lg shadow-amber-800/40 hover:shadow-amber-800/60 active:scale-95 transition-all duration-200 border border-white/20 hover:-translate-y-0.5"
+          title="Open Current Bill / Checkout"
+        >
+          <icons.receiptIcon className="h-6 w-6" />
+          <span className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[11px] font-black rounded-full h-6 w-6 flex items-center justify-center border-2 border-white shadow-md">
+            {cart.reduce((acc, item) => acc + item.quantity, 0)}
+          </span>
+        </button>
+      )}
+
+      {/* Checkout Modal */}
+      <Modal
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        title="Current Bill"
+        size="sm"
+      >
+        {renderCartContent(true)}
+      </Modal>
     </ProtectedRoute>
   );
 }

@@ -21,7 +21,8 @@ import {
   FiChevronRight,
   FiUsers,
   FiAlertCircle,
-  FiRefreshCw
+  FiRefreshCw,
+  FiShoppingBag
 } from 'react-icons/fi';
 
 export const icons = {
@@ -45,6 +46,7 @@ export const icons = {
   employeesIcon: FiUsers,
   errorIcon: FiAlertCircle,
   refreshIcon: FiRefreshCw,
+  receiptIcon: FiShoppingBag,
 };
 
 export default icons;

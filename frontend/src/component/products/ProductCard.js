@@ -18,7 +18,7 @@ export const ProductCard = ({ product, cartItem, onAdd, onRemove }) => {
         }`}
     >
       {/* Product Image Container */}
-      <div className="aspect-[3/4] relative w-full bg-gray-50 overflow-hidden border-b border-gray-100">
+      <div className="aspect-square sm:aspect-[3/4] relative w-full bg-gray-50 overflow-hidden border-b border-gray-100">
         {product.image ? (
           <img 
             src={product.image} 
@@ -41,7 +41,7 @@ export const ProductCard = ({ product, cartItem, onAdd, onRemove }) => {
       </div>
 
       {/* Content Area */}
-      <div className="flex flex-col flex-1 p-3.5 space-y-3 justify-between">
+      <div className="flex flex-col flex-1 p-2.5 sm:p-3.5 space-y-2.5 sm:space-y-3 justify-between">
         <div className="space-y-1">
           {/* Enforces consistent height (up to 2 lines) so grid rows stay aligned */}
           <h3 
@@ -58,27 +58,30 @@ export const ProductCard = ({ product, cartItem, onAdd, onRemove }) => {
         {/* Action Button Section */}
         <div className="pt-0.5">
           {isActive ? (
-            <div className="flex items-center justify-between bg-amber-50 border border-amber-200/60 rounded-xl p-1 w-full animate-fade-in">
+            <div className="flex items-center justify-between bg-amber-50 border border-amber-200/60 rounded-xl p-0.5 sm:p-1 w-full animate-fade-in">
               <button 
                 onClick={onRemove}
-                className="flex items-center justify-center h-8 w-8 text-amber-800 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer active:scale-90"
+                className="flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 text-amber-800 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer active:scale-90"
                 title="Decrease quantity"
               >
-                <icons.minusIcon className="h-3 w-3" />
+                <icons.minusIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
               </button>
-              <span className="text-xs font-bold text-amber-900 px-1">{cartItem.quantity} added</span>
+              <span className="text-[10px] sm:text-xs font-bold text-amber-900 px-0.5 sm:px-1 truncate">
+                {cartItem.quantity}
+                <span className="hidden sm:inline"> added</span>
+              </span>
               <button 
                 onClick={onAdd}
-                className="flex items-center justify-center h-8 w-8 text-amber-800 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer active:scale-90"
+                className="flex items-center justify-center h-7 w-7 sm:h-8 sm:w-8 text-amber-800 hover:bg-amber-100 rounded-lg transition-colors cursor-pointer active:scale-90"
                 title="Increase quantity"
               >
-                <icons.plusIcon className="h-3 w-3" />
+                <icons.plusIcon className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
               </button>
             </div>
           ) : (
             <button 
               onClick={onAdd}
-              className="w-full flex items-center justify-center space-x-1.5 py-2 px-3 text-xs font-bold text-white bg-amber-800 rounded-xl hover:bg-amber-900 active:scale-95 transition-all shadow-sm shadow-amber-800/10 cursor-pointer"
+              className="w-full flex items-center justify-center space-x-1.5 py-1.5 sm:py-2 px-2 sm:px-3 text-xs font-bold text-white bg-amber-800 rounded-xl hover:bg-amber-900 active:scale-95 transition-all shadow-sm shadow-amber-800/10 cursor-pointer"
             >
               <span>+ Add</span>
             </button>
