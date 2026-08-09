@@ -114,7 +114,7 @@ function SalesPOS() {
             ) : filteredProducts.length === 0 ? (
               <EmptyState title="No products found" description="Try searching for another item or add new products." />
             ) : (
-              <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-4 content-start">
+              <div className="flex-1 overflow-y-auto p-1.5 pb-4 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-4 content-start">
                 {filteredProducts.map((product) => {
                   const cartItem = cart.find(item => item.productId === product._id);
                   return (
