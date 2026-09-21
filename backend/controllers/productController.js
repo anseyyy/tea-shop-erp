@@ -50,7 +50,7 @@ const createProduct = async (req, res) => {
 // @access  Public/Employee
 const getProducts = async (req, res) => {
   try {
-    const products = await Product.find({}).sort({ createdAt: -1 });
+    const products = await Product.find({}).sort({ createdAt: -1 }).lean();
     res.json(products);
   } catch (error) {
     res.status(500).json({ message: error.message });

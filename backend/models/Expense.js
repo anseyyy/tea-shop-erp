@@ -25,6 +25,9 @@ const expenseSchema = new mongoose.Schema({
   timestamps: true,
 });
 
+expenseSchema.index({ date: -1 });
+expenseSchema.index({ createdBy: 1 });
+
 const Expense = mongoose.model('Expense', expenseSchema);
 
 module.exports = Expense;

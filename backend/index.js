@@ -3,6 +3,8 @@ const cors = require('cors');
 require('dotenv').config();
 const connectDB = require('./dbconnect/db');
 
+const compression = require('compression');
+
 const app = express();
 
 // Connect to MongoDB
@@ -10,7 +12,21 @@ connectDB();
 
 // Middleware
 app.use(cors());
+app.use(compression());
 app.use(express.json());
+
+// Response-time instrumentation middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    res.setHeader('X-Response-Time', `${duration}ms`);
+    if (duration > 100) {
+      console.warn(`[SLOW ROUTE WARN] ${req.method} ${req.originalUrl} - ${duration}ms`);
+    }
+  });
+  next();
+});
 
 // Routes
 app.use('/api/auth', require('./routes/auth/authRoutes'));

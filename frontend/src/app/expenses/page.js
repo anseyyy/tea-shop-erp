@@ -20,11 +20,13 @@ function ExpensesView() {
   const [filterToday, setFilterToday] = useState(false);
   const { showNotification } = useNotification();
 
-  const loadExpenses = async () => {
+  const loadExpenses = async (isToday = filterToday) => {
     setLoading(true);
     setError('');
     try {
-      const data = await expensesAPI.getExpenses();
+      const data = isToday 
+        ? await expensesAPI.getTodayExpenses() 
+        : await expensesAPI.getExpenses();
       setExpenses(data);
     } catch (err) {
       setError(err.message || 'Failed to load expenses list');
@@ -34,8 +36,8 @@ function ExpensesView() {
   };
 
   useEffect(() => {
-    loadExpenses();
-  }, []);
+    loadExpenses(filterToday);
+  }, [filterToday]);
 
   const handleFormSubmit = async (formData) => {
     setFormLoading(true);

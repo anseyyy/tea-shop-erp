@@ -12,28 +12,56 @@ const getDashboardStats = async (req, res) => {
     const endOfDay = new Date();
     endOfDay.setUTCHours(23, 59, 59, 999);
 
-    // Fetch today's data
-    const sales = await Sale.find({
-      createdAt: { $gte: startOfDay, $lte: endOfDay },
-    });
+    const salesAggPromise = Sale.aggregate([
+      { $match: { createdAt: { $gte: startOfDay, $lte: endOfDay } } },
+      {
+        $facet: {
+          totals: [
+            {
+              $group: {
+                _id: null,
+                todayRevenue: { $sum: '$totalAmount' },
+                billsCount: { $sum: 1 },
+              },
+            },
+          ],
+          items: [
+            { $unwind: '$items' },
+            {
+              $group: {
+                _id: null,
+                itemsSold: { $sum: '$items.quantity' },
+              },
+            },
+          ],
+        },
+      },
+    ]);
 
-    const expenses = await Expense.find({
-      date: { $gte: startOfDay, $lte: endOfDay },
-    });
+    const expensesAggPromise = Expense.aggregate([
+      { $match: { date: { $gte: startOfDay, $lte: endOfDay } } },
+      {
+        $group: {
+          _id: null,
+          todayExpenses: { $sum: '$amount' },
+        },
+      },
+    ]);
 
-    // Calculations
-    const todayRevenue = sales.reduce((acc, sale) => acc + sale.totalAmount, 0);
-    const todayExpenses = expenses.reduce((acc, exp) => acc + exp.amount, 0);
+    const [salesResult, expensesResult] = await Promise.all([
+      salesAggPromise,
+      expensesAggPromise,
+    ]);
+
+    const salesTotals = salesResult[0]?.totals[0] || {};
+    const salesItems = salesResult[0]?.items[0] || {};
+    const expenseTotals = expensesResult[0] || {};
+
+    const todayRevenue = salesTotals.todayRevenue || 0;
+    const billsCount = salesTotals.billsCount || 0;
+    const itemsSold = salesItems.itemsSold || 0;
+    const todayExpenses = expenseTotals.todayExpenses || 0;
     const todayProfit = todayRevenue - todayExpenses;
-    
-    const billsCount = sales.length;
-    
-    let itemsSold = 0;
-    sales.forEach((sale) => {
-      sale.items.forEach((item) => {
-        itemsSold += item.quantity;
-      });
-    });
 
     res.json({
       todayRevenue,
@@ -60,11 +88,14 @@ const getTodayHistory = async (req, res) => {
 
     const sales = await Sale.find({
       createdAt: { $gte: startOfDay, $lte: endOfDay },
-    }).sort({ createdAt: -1 });
+    })
+      .sort({ createdAt: -1 })
+      .select('_id createdAt items totalAmount')
+      .lean();
 
     const formattedHistory = sales.map((sale) => {
       // Format time (e.g. 10:42 AM)
-      const timeStr = sale.createdAt.toLocaleTimeString('en-US', {
+      const timeStr = new Date(sale.createdAt).toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true,
@@ -74,13 +105,13 @@ const getTodayHistory = async (req, res) => {
       return {
         _id: sale._id,
         time: timeStr,
-        items: sale.items.map(item => ({
+        items: sale.items.map((item) => ({
           name: item.name,
           quantity: item.quantity,
           price: item.price,
-          subtotal: item.subtotal
+          subtotal: item.subtotal,
         })),
-        totalAmount: sale.totalAmount
+        totalAmount: sale.totalAmount,
       };
     });
 

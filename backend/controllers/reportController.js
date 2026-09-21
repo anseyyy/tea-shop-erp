@@ -2,37 +2,71 @@ const Sale = require('../models/Sale');
 const Expense = require('../models/Expense');
 
 // Helper to calculate report details from lists of sales and expenses
-const generateReportData = (sales, expenses) => {
-  const revenue = sales.reduce((acc, sale) => acc + sale.totalAmount, 0);
-  const totalExpenses = expenses.reduce((acc, exp) => acc + exp.amount, 0);
-  const netProfit = revenue - totalExpenses;
-  const totalBills = sales.length;
+// Helper to calculate report details via MongoDB Aggregation Pipelines
+const fetchAggregatedReport = async (startDate, endDate) => {
+  const salesAggPromise = Sale.aggregate([
+    { $match: { createdAt: { $gte: startDate, $lte: endDate } } },
+    {
+      $facet: {
+        totals: [
+          {
+            $group: {
+              _id: null,
+              revenue: { $sum: '$totalAmount' },
+              totalBills: { $sum: 1 },
+            },
+          },
+        ],
+        items: [
+          { $unwind: '$items' },
+          {
+            $group: {
+              _id: '$items.name',
+              quantity: { $sum: '$items.quantity' },
+            },
+          },
+          { $sort: { quantity: -1 } },
+        ],
+      },
+    },
+  ]);
+
+  const expensesAggPromise = Expense.aggregate([
+    { $match: { date: { $gte: startDate, $lte: endDate } } },
+    {
+      $group: {
+        _id: null,
+        totalExpenses: { $sum: '$amount' },
+      },
+    },
+  ]);
+
+  const [salesResult, expensesResult] = await Promise.all([
+    salesAggPromise,
+    expensesAggPromise,
+  ]);
+
+  const salesTotals = salesResult[0]?.totals[0] || {};
+  const itemsList = salesResult[0]?.items || [];
+  const expenseTotals = expensesResult[0] || {};
+
+  const revenue = salesTotals.revenue || 0;
+  const totalBills = salesTotals.totalBills || 0;
+  const expenses = expenseTotals.totalExpenses || 0;
+  const netProfit = revenue - expenses;
 
   let itemsSold = 0;
-  const itemCounts = {};
-
-  sales.forEach((sale) => {
-    sale.items.forEach((item) => {
-      itemsSold += item.quantity;
-      if (itemCounts[item.name]) {
-        itemCounts[item.name] += item.quantity;
-      } else {
-        itemCounts[item.name] = item.quantity;
-      }
-    });
+  itemsList.forEach((item) => {
+    itemsSold += item.quantity;
   });
 
-  // Calculate best seller
-  let bestSeller = { name: 'N/A', quantity: 0 };
-  for (const name in itemCounts) {
-    if (itemCounts[name] > bestSeller.quantity) {
-      bestSeller = { name, quantity: itemCounts[name] };
-    }
-  }
+  const bestSeller = itemsList.length > 0
+    ? { name: itemsList[0]._id, quantity: itemsList[0].quantity }
+    : { name: 'N/A', quantity: 0 };
 
   return {
     revenue,
-    expenses: totalExpenses,
+    expenses,
     netProfit,
     totalBills,
     itemsSold,
@@ -54,10 +88,7 @@ const getDailyReport = async (req, res) => {
     const endOfDay = new Date(targetDate);
     endOfDay.setUTCHours(23, 59, 59, 999);
 
-    const sales = await Sale.find({ createdAt: { $gte: startOfDay, $lte: endOfDay } });
-    const expenses = await Expense.find({ date: { $gte: startOfDay, $lte: endOfDay } });
-
-    const report = generateReportData(sales, expenses);
+    const report = await fetchAggregatedReport(startOfDay, endOfDay);
     res.json({
       period: 'Daily',
       date: startOfDay.toISOString().split('T')[0],
@@ -83,10 +114,7 @@ const getWeeklyReport = async (req, res) => {
     startOfWeek.setUTCDate(startOfWeek.getUTCDate() - 6); // 7 days including targetDate
     startOfWeek.setUTCHours(0, 0, 0, 0);
 
-    const sales = await Sale.find({ createdAt: { $gte: startOfWeek, $lte: endOfWeek } });
-    const expenses = await Expense.find({ date: { $gte: startOfWeek, $lte: endOfWeek } });
-
-    const report = generateReportData(sales, expenses);
+    const report = await fetchAggregatedReport(startOfWeek, endOfWeek);
     res.json({
       period: 'Weekly',
       startDate: startOfWeek.toISOString().split('T')[0],
@@ -111,11 +139,8 @@ const getMonthlyReport = async (req, res) => {
     const startOfMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
     const endOfMonth = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
 
-    const sales = await Sale.find({ createdAt: { $gte: startOfMonth, $lte: endOfMonth } });
-    const expenses = await Expense.find({ date: { $gte: startOfMonth, $lte: endOfMonth } });
+    const report = await fetchAggregatedReport(startOfMonth, endOfMonth);
 
-    const report = generateReportData(sales, expenses);
-    
     // Get month name
     const monthName = startOfMonth.toLocaleString('default', { month: 'long', timeZone: 'UTC' });
 

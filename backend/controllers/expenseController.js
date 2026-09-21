@@ -26,7 +26,7 @@ const createExpense = async (req, res) => {
 // @access  Private/Admin
 const getExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find({}).sort({ date: -1 }).populate('createdBy', 'name');
+    const expenses = await Expense.find({}).sort({ date: -1 }).populate('createdBy', 'name').lean();
     res.json(expenses);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -38,7 +38,7 @@ const getExpenses = async (req, res) => {
 // @access  Private/Admin
 const getExpenseById = async (req, res) => {
   try {
-    const expense = await Expense.findById(req.params.id).populate('createdBy', 'name');
+    const expense = await Expense.findById(req.params.id).populate('createdBy', 'name').lean();
 
     if (!expense) {
       return res.status(404).json({ message: 'Expense not found' });
@@ -106,7 +106,7 @@ const getTodayExpenses = async (req, res) => {
 
     const expenses = await Expense.find({
       date: { $gte: startOfDay, $lte: endOfDay },
-    }).sort({ date: -1 }).populate('createdBy', 'name');
+    }).sort({ date: -1 }).populate('createdBy', 'name').lean();
 
     res.json(expenses);
   } catch (error) {

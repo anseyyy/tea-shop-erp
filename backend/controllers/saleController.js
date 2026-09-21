@@ -41,7 +41,7 @@ const createSale = async (req, res) => {
 // @access  Private
 const getSales = async (req, res) => {
   try {
-    const sales = await Sale.find({}).sort({ createdAt: -1 }).populate('createdBy', 'name');
+    const sales = await Sale.find({}).sort({ createdAt: -1 }).populate('createdBy', 'name').lean();
     res.json(sales);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -53,7 +53,7 @@ const getSales = async (req, res) => {
 // @access  Private
 const getSaleById = async (req, res) => {
   try {
-    const sale = await Sale.findById(req.params.id).populate('createdBy', 'name');
+    const sale = await Sale.findById(req.params.id).populate('createdBy', 'name').lean();
 
     if (!sale) {
       return res.status(404).json({ message: 'Sale not found' });
@@ -133,7 +133,7 @@ const getTodaySales = async (req, res) => {
 
     const sales = await Sale.find({
       createdAt: { $gte: startOfDay, $lte: endOfDay },
-    }).sort({ createdAt: -1 }).populate('createdBy', 'name');
+    }).sort({ createdAt: -1 }).populate('createdBy', 'name').lean();
 
     res.json(sales);
   } catch (error) {

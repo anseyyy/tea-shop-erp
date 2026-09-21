@@ -22,8 +22,10 @@ function DashboardView() {
     setLoading(true);
     setError('');
     try {
-      const statsData = await dashboardAPI.getStats();
-      const historyData = await dashboardAPI.getHistory();
+      const [statsData, historyData] = await Promise.all([
+        dashboardAPI.getStats(),
+        dashboardAPI.getHistory(),
+      ]);
       setStats(statsData);
       setHistory(historyData);
     } catch (err) {
